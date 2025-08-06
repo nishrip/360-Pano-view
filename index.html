@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>360° Panorama Viewer</title>
+  
+  <!-- Panolens and Three.js libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.0/build/panolens.min.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: black;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 1.5rem;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 1rem 2rem;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="loading">Loading panorama...</div>
+  </div>
+
+  <script>
+    const container = document.getElementById('container');
+    const loading = document.getElementById('loading');
+
+    // Initialize Panolens viewer
+    const viewer = new PANOLENS.Viewer({
+      container: container,
+      controlBar: true,
+      autoHideInfospot: false,
+      output: 'console'
+    });
+
+    // Load panorama image
+    const panorama = new PANOLENS.ImagePanorama('my-panorama.jpg');
+
+    // Hide loading when panorama is ready
+    panorama.addEventListener('enter-fade-start', () => {
+      loading.style.display = 'none';
+    });
+
+    viewer.add(panorama);
+  </script>
+</body>
+</html>
