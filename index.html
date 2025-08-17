@@ -7,7 +7,7 @@
   
   <!-- Panolens and Three.js libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r110/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/panolens@0.12.0/build/panolens.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.0/build/panolens.min.js"></script>
 
   <style>
     html, body {
@@ -45,6 +45,7 @@
   </div>
 
   <script>
+    // Get DOM elements
     const container = document.getElementById('container');
     const loading = document.getElementById('loading');
 
@@ -56,16 +57,39 @@
       output: 'console'
     });
 
-    // Load panorama image
-    const panorama = new PANOLENS.ImagePanorama('my-panorama.jpg');
+    // Create three panoramas
+    const pano1 = new PANOLENS.ImagePanorama('pano1.jpg');
+    const pano2 = new PANOLENS.ImagePanorama('pano2.jpg');
+    const pano3 = new PANOLENS.ImagePanorama('pano3.jpg');
 
-    // Hide loading when panorama is ready
-    panorama.addEventListener('enter-fade-start', () => {
-      loading.style.display = 'none';
-    });
+    // Hide loading when panorama starts to fade in
+    pano1.addEventListener('enter-fade-start', () => loading.style.display = 'none');
+    pano2.addEventListener('enter-fade-start', () => loading.style.display = 'none');
+    pano3.addEventListener('enter-fade-start', () => loading.style.display = 'none');
 
-    viewer.add(panorama);
+    // Create hotspots (infospots) for navigation
+    const spot1to2 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
+    spot1to2.position.set(5000, -200, -2000); // Position in pano1
+    spot1to2.addEventListener('click', () => viewer.setPanorama(pano2));
+    pano1.add(spot1to2);
+
+    const spot2to1 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
+    spot2to1.position.set(-5000, -200, -2100); // Position in pano2
+    spot2to1.addEventListener('click', () => viewer.setPanorama(pano1));
+    pano2.add(spot2to1);
+
+    const spot2to3 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
+    spot2to3.position.set(5000, -200, -710); // Position in pano2
+    spot2to3.addEventListener('click', () => viewer.setPanorama(pano3));
+    pano2.add(spot2to3);
+
+    const spot3to2 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
+    spot3to2.position.set(4800, -200, 0); // Position in pano3
+    spot3to2.addEventListener('click', () => viewer.setPanorama(pano2));
+    pano3.add(spot3to2);
+
+    // Add panoramas to the viewer
+    viewer.add(pano1, pano2, pano3);
   </script>
 </body>
-
 </html>
