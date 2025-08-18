@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>360° Panorama Viewer</title>
-  
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r110/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.0/build/panolens.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/Tween.min.js"></script>
@@ -36,28 +36,74 @@
 
     const camera = viewer.getCamera();
 
-    const panoramaFiles = ['pano1.jpg', 'pano2.jpg', 'pano3.jpg'];
+    // Panorama paths
+    const panoramaPaths = ['pano1.jpg', 'pano2.jpg', 'pano3.jpg'];
     const panoramas = [];
 
-    // Preload function using THREE.TextureLoader
-    function preloadPanoramas(files, callback) {
-      const loader = new THREE.TextureLoader();
-      let loaded = 0;
+    const loader = new THREE.TextureLoader();
+    let loadedCount = 0;
 
-      files.forEach((file, index) => {
-        loader.load(file, texture => {
-          // Create panorama using preloaded texture
-          const pano = new PANOLENS.ImagePanorama(texture.image.src); // still uses src
-          panoramas[index] = pano;
-          loaded++;
-          if (loaded === files.length) {
-            callback();
-          }
-        });
-      });
+    function onTextureLoad(texture, index) {
+      const pano = new PANOLENS.ImagePanorama(texture.image.src); // texture is preloaded
+      panoramas[index] = pano;
+      loadedCount++;
+
+      if (loadedCount === panoramaPaths.length) {
+        setupHotspots();
+        viewer.add(...panoramas);
+        viewer.setPanorama(panoramas[0]);
+      }
     }
 
-    function setupPanoramas() {
+    function preloadPanorama(index) {
+      loader.load(
+        panoramaPaths[index],
+        texture => onTextureLoad(texture, index),
+        undefined,
+        err => console.error(`Failed to load ${panoramaPaths[index]}:`, err)
+      );
+    }
+
+    for (let i = 0; i < panoramaPaths.length; i++) {
+      preloadPanorama(i);
+    }
+
+    function switchPanorama(hotspot, targetPanorama, correspondingTargetHotspot) {
+      viewer.tweenControlCenter(hotspot.position, 1000, TWEEN.Easing.Quadratic.InOut);
+
+      const startFov = camera.fov;
+      const zoomDuration = 1000;
+      let startTime = null;
+
+      function animateZoom(time) {
+        if (!startTime) startTime = time;
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / zoomDuration, 1);
+        camera.fov = startFov + (30 - startFov) * progress;
+        camera.updateProjectionMatrix();
+
+        if (progress < 1) {
+          requestAnimationFrame(animateZoom);
+        } else {
+          fadeOverlay.style.opacity = 1;
+
+          setTimeout(() => {
+            viewer.setPanorama(targetPanorama);
+            viewer.tweenControlCenter(correspondingTargetHotspot.position, 0);
+            camera.fov = startFov;
+            camera.updateProjectionMatrix();
+
+            setTimeout(() => {
+              fadeOverlay.style.opacity = 0;
+            }, 300);
+          }, 500);
+        }
+      }
+
+      requestAnimationFrame(animateZoom);
+    }
+
+    function setupHotspots() {
       // Hotspots
       const spot1to2 = new PANOLENS.Infospot(250, 'Hotspot.png');
       spot1to2.position.set(5000, -200, -2000);
@@ -68,41 +114,6 @@
       const spot3to2 = new PANOLENS.Infospot(250, 'Hotspot4.png');
       spot3to2.position.set(4800, -200, 0);
 
-      function switchPanorama(hotspot, targetPanorama, correspondingTargetHotspot) {
-        viewer.tweenControlCenter(hotspot.position, 1000, TWEEN.Easing.Quadratic.InOut);
-
-        const startFov = camera.fov;
-        const zoomDuration = 1000;
-        let startTime = null;
-
-        function animateZoom(time) {
-          if (!startTime) startTime = time;
-          const elapsed = time - startTime;
-          const progress = Math.min(elapsed / zoomDuration, 1);
-          camera.fov = startFov + (30 - startFov) * progress;
-          camera.updateProjectionMatrix();
-
-          if (progress < 1) {
-            requestAnimationFrame(animateZoom);
-          } else {
-            fadeOverlay.style.opacity = 1;
-
-            setTimeout(() => {
-              viewer.setPanorama(targetPanorama);
-              viewer.tweenControlCenter(correspondingTargetHotspot.position, 0);
-              camera.fov = startFov;
-              camera.updateProjectionMatrix();
-
-              setTimeout(() => {
-                fadeOverlay.style.opacity = 0;
-              }, 300);
-            }, 500);
-          }
-        }
-
-        requestAnimationFrame(animateZoom);
-      }
-
       // Attach events
       spot1to2.addEventListener('click', () => switchPanorama(spot1to2, panoramas[1], spot2to1));
       spot2to1.addEventListener('click', () => switchPanorama(spot2to1, panoramas[0], spot1to2));
@@ -112,14 +123,8 @@
       panoramas[0].add(spot1to2);
       panoramas[1].add(spot2to1, spot2to3);
       panoramas[2].add(spot3to2);
-
-      viewer.add(...panoramas);
-      viewer.setPanorama(panoramas[0]);
     }
-
-    // Start preloading
-    preloadPanoramas(panoramaFiles, setupPanoramas);
-
   </script>
 </body>
 </html>
+
