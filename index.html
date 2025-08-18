@@ -5,91 +5,105 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>360° Panorama Viewer</title>
   
-  <!-- Panolens and Three.js libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r110/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.0/build/panolens.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/Tween.min.js"></script>
 
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      height: 100%;
-      font-family: Arial, sans-serif;
-      background: black;
-    }
-
-    #container {
-      width: 100vw;
-      height: 100vh;
-      position: relative;
-    }
-
-    #loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      font-size: 1.5rem;
-      z-index: 10;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 1rem 2rem;
-      border-radius: 8px;
+    html, body { margin:0; padding:0; overflow:hidden; height:100%; background:black; }
+    #container { width:100vw; height:100vh; position:relative; }
+    #fadeOverlay {
+      position:absolute; top:0; left:0; width:100%; height:100%;
+      background:black; opacity:0; pointer-events:none; z-index:20;
+      transition: opacity 0.3s ease;
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <div id="loading">Loading panorama...</div>
+    <div id="fadeOverlay"></div>
   </div>
 
   <script>
-    // Get DOM elements
     const container = document.getElementById('container');
-    const loading = document.getElementById('loading');
+    const fadeOverlay = document.getElementById('fadeOverlay');
 
-    // Initialize Panolens viewer
     const viewer = new PANOLENS.Viewer({
       container: container,
       controlBar: true,
-      autoHideInfospot: false,
-      output: 'console'
+      autoHideInfospot: false
     });
 
-    // Create three panoramas
     const pano1 = new PANOLENS.ImagePanorama('pano1.jpg');
     const pano2 = new PANOLENS.ImagePanorama('pano2.jpg');
     const pano3 = new PANOLENS.ImagePanorama('pano3.jpg');
 
-    // Hide loading when panorama starts to fade in
-    pano1.addEventListener('enter-fade-start', () => loading.style.display = 'none');
-    pano2.addEventListener('enter-fade-start', () => loading.style.display = 'none');
-    pano3.addEventListener('enter-fade-start', () => loading.style.display = 'none');
+    const camera = viewer.getCamera();
 
-    // Create hotspots (infospots) for navigation
-    const spot1to2 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
-    spot1to2.position.set(5000, -200, -2000); // Position in pano1
-    spot1to2.addEventListener('click', () => viewer.setPanorama(pano2));
+    function switchPanorama(hotspot, targetPanorama, correspondingTargetHotspot) {
+      // Zoom toward hotspot
+      viewer.tweenControlCenter(hotspot.position, 1000, TWEEN.Easing.Quadratic.InOut);
+
+      const startFov = camera.fov;
+      const zoomDuration = 1000;
+      let startTime = null;
+
+      function animateZoom(time) {
+        if (!startTime) startTime = time;
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / zoomDuration, 1);
+        camera.fov = startFov + (30 - startFov) * progress;
+        camera.updateProjectionMatrix();
+
+        if (progress < 1) {
+          requestAnimationFrame(animateZoom);
+        } else {
+          // Fade to black
+          fadeOverlay.style.opacity = 1;
+
+          setTimeout(() => {
+            // Switch panorama while black
+            viewer.setPanorama(targetPanorama);
+
+            // Snap camera to target hotspot orientation & restore FOV
+            viewer.tweenControlCenter(correspondingTargetHotspot.position, 0);
+            camera.fov = startFov;
+            camera.updateProjectionMatrix();
+
+            // Fade back in after a short delay
+            setTimeout(() => {
+              fadeOverlay.style.opacity = 0;
+            }, 300);
+
+          }, 500); // black-out duration before pano swap
+        }
+      }
+
+      requestAnimationFrame(animateZoom);
+    }
+
+    // Hotspots
+    const spot1to2 = new PANOLENS.Infospot(250, 'Hotspot.png');
+    spot1to2.position.set(5000, -200, -2000);
+    const spot2to1 = new PANOLENS.Infospot(250, 'Hotspot2.png');
+    spot2to1.position.set(-5000, -200, -2100);
+    const spot2to3 = new PANOLENS.Infospot(250, 'Hotspot3.png');
+    spot2to3.position.set(5000, -200, -710);
+    const spot3to2 = new PANOLENS.Infospot(250, 'Hotspot4.png');
+    spot3to2.position.set(4800, -200, 0);
+
+    // Attach events
+    spot1to2.addEventListener('click', () => switchPanorama(spot1to2, pano2, spot2to1));
+    spot2to1.addEventListener('click', () => switchPanorama(spot2to1, pano1, spot1to2));
+    spot2to3.addEventListener('click', () => switchPanorama(spot2to3, pano3, spot3to2));
+    spot3to2.addEventListener('click', () => switchPanorama(spot3to2, pano2, spot2to3));
+
     pano1.add(spot1to2);
-
-    const spot2to1 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
-    spot2to1.position.set(-5000, -200, -2100); // Position in pano2
-    spot2to1.addEventListener('click', () => viewer.setPanorama(pano1));
-    pano2.add(spot2to1);
-
-    const spot2to3 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
-    spot2to3.position.set(5000, -200, -710); // Position in pano2
-    spot2to3.addEventListener('click', () => viewer.setPanorama(pano3));
-    pano2.add(spot2to3);
-
-    const spot3to2 = new PANOLENS.Infospot(300, PANOLENS.DataImage.Arrow);
-    spot3to2.position.set(4800, -200, 0); // Position in pano3
-    spot3to2.addEventListener('click', () => viewer.setPanorama(pano2));
+    pano2.add(spot2to1, spot2to3);
     pano3.add(spot3to2);
 
-    // Add panoramas to the viewer
     viewer.add(pano1, pano2, pano3);
+    viewer.setPanorama(pano1);
   </script>
 </body>
 </html>
